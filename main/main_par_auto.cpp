@@ -13,7 +13,8 @@ int main(int argc, char *argv[]) {
   std::string datafile = "test_files/data.txt", queryfile = "test_files/query.txt";
   std::vector< std::vector<std::pair<float, int> > > res;
 
-  Auto_random_kd_forest<int> RKDf(N, D, datafile, Q, queryfile, k, epsilon, res);
+  Auto_random_kd_forest<int> RKDf(N, D, datafile, epsilon);
+  RKDf.perform_queries(Q, queryfile, k, epsilon, res);
 	
   std::cout << "\nRESULTS\n";
   for (std::vector<std::pair<float, int> >::const_iterator it = res[0]

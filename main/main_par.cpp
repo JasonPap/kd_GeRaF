@@ -22,8 +22,8 @@ int main(int argc, char *argv[]) {
   mypars.shuffle_enable = false;
   mypars.sample_size = N;
 
-  Auto_random_kd_forest<float> RKDf(N, D, datafile, Q, queryfile, k, epsilon,
-                                    res, &mypars);
+  Auto_random_kd_forest<float>  RKDf(N, D, datafile, epsilon, &mypars);
+  RKDf.perform_queries(Q, queryfile, k, epsilon, res);
 
   std::cout << "\nRESULTS\n";
   for (std::vector<std::pair<float, int> >::const_iterator it = res[0]

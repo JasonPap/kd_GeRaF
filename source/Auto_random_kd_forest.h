@@ -251,23 +251,13 @@ class Auto_random_kd_forest {
    * @param N           - size of data set
    * @param D           - dimension of data set
    * @param datafile    - file that contains the data set
-   * @param Q          	- number of queries
-   * @param queryfile   - file that contains the queries
-   * @param k          	- number of nearest neighbours we are searching per query
    * @param epsilon   	- factor of accuracy. Set to 0 for maximum accuracy
-   * @param results			- 2D vector that will host the indices of the nearest neighbors.
-   * The vector shall be resized automatically to 'Q' x 'k'.
    * @param parameters  - struct of parameters. By default, parameters are auto configured.
    * @param file_option - how to parse the `datafile`. Default value is 0.
    */
   Auto_random_kd_forest(
-      size_t& N, size_t& D, const std::string& datafile, const size_t Q,
-      const std::string& queryfile, const int k, const double epsilon,
-      std::vector<std::vector<std::pair<float, int> > >& results,
-      Params* parameters = 0,
-      const int file_option = 0)
-      : N(N),
-        D(D) {
+      size_t& N, size_t& D, const std::string& datafile, const double epsilon,
+      Params* parameters = 0, const int file_option = 0): N(N), D(D) {
     // read the data set
     if (file_option == 0) {
       readfile(datafile);
@@ -429,20 +419,37 @@ class Auto_random_kd_forest {
     std::cout << "rotate_option = " << rotate_option << "\n";
     std::cout << "max_leaf_check = " << max_leaf_check << "\n";
     std::cout << std::endl;
-
-    // read the queries
-    std::vector<std::vector<T> > q;
-    read_points<T>(q, Q, D, queryfile.c_str());
-
-    // perform the search
-    results.resize(Q);
-    std::vector<T> q_squared_coords;
-    computeSquare(q, Q, D, q_squared_coords);
-    for (unsigned int i = 0; i < Q; ++i) {
-      search_nn_prune(q[i], results[i], max_leaf_check, squared_coords,
-                      q_squared_coords, i, false, k, epsilon);
-    }
   }
+
+
+  /**
+   * \brief Perform queries on the kd-forest and fill in the
+   * result vector.
+   * 
+   * @param Q           - number of queries
+   * @param queryfile   - file that contains the queries
+   * @param k           - number of nearest neighbours we are searching per query
+   * @param epsilon     - factor of accuracy. Set to 0 for maximum accuracy
+   * @param results   - 2D vector that will host the indices of the nearest neighbors.
+   * The vector shall be resized automatically to 'Q' x 'k'.
+   */
+   void perform_queries(const size_t Q, const std::string& queryfile, 
+      const int k, const double epsilon, std::vector<std::vector<std::pair<float, int> > >& results)
+   {
+      // read the queries
+      std::vector<std::vector<T> > q;
+      read_points<T>(q, Q, D, queryfile.c_str());
+
+      // perform the search
+      results.resize(Q);
+      std::vector<T> q_squared_coords;
+      computeSquare(q, Q, D, q_squared_coords);
+      for (unsigned int i = 0; i < Q; ++i) {
+        search_nn_prune(q[i], results[i], max_leaf_check, squared_coords,
+                        q_squared_coords, i, false, k, epsilon);
+      }
+   }
+
 
   /**
    * \brief Given a match file that contains the indices
