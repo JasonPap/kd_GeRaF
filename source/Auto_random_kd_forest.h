@@ -54,6 +54,10 @@ template<typename T>
 class Auto_random_kd_forest {
  private:
 
+  //Data members of the class
+  std::vector<T> squared_coords;
+  int max_leaf_check;
+
   /** \brief Read a data set, which has one point per line.
    *
    * Dimension and number of points should have been
@@ -192,8 +196,6 @@ class Auto_random_kd_forest {
    * the NN.
    * @param max_leaf_check      - max number of leaves
    * to check while searching
-   * @param squared_coords      - squared coordinates of
-   * points
    * @param q_squared_coords    - squared coordinates of
    * queries
    * @param q_index             - index of query
@@ -206,10 +208,9 @@ class Auto_random_kd_forest {
    */
   void search_nn_prune(const std::vector<T>& q,
                        std::vector<std::pair<float, int> >& res,
-                       int max_leaf_check, const std::vector<T>& squared_coords,
-                       const std::vector<T>& q_squared_coords, int q_index,
-                       bool sorted_results = false, int k = 1, double epsilon =
-                           0.0) {
+                       int max_leaf_check, const std::vector<T>& q_squared_coords,
+                       int q_index, bool sorted_results = false, 
+                       int k = 1, double epsilon = 0.0) {
 
     float mul_factor = 1 / (1 + epsilon);
     size_t max_count = max_leaf_check * mul_factor;
@@ -270,7 +271,7 @@ class Auto_random_kd_forest {
     D = Auto_random_kd_forest::D;
 
     float var[D];
-    int points_per_leaf, trees_no, t, max_leaf_check;
+    int points_per_leaf, trees_no, t;
     size_t sample_size;
     Rotation rotate_option;
     bool shuffle_enable;
@@ -281,7 +282,7 @@ class Auto_random_kd_forest {
     } else {
       // variance is computed inside that function
       auto_config_params(epsilon, var, points_per_leaf, trees_no,
-                         t, max_leaf_check, rotate_option, shuffle_enable);
+                         t, rotate_option, shuffle_enable);
     }
 
     // build the forest
@@ -409,7 +410,7 @@ class Auto_random_kd_forest {
       }
     }
 #endif
-    std::vector<T> squared_coords;
+    //std::vector<T> squared_coords;
     computeSquare(points, N, D, squared_coords);
 
     std::cout << "N = " << N << ", D = " << D << std::endl;
@@ -445,7 +446,7 @@ class Auto_random_kd_forest {
       std::vector<T> q_squared_coords;
       computeSquare(q, Q, D, q_squared_coords);
       for (unsigned int i = 0; i < Q; ++i) {
-        search_nn_prune(q[i], results[i], max_leaf_check, squared_coords,
+        search_nn_prune(q[i], results[i], max_leaf_check,
                         q_squared_coords, i, false, k, epsilon);
       }
    }
@@ -520,7 +521,7 @@ class Auto_random_kd_forest {
 
  private:
   void auto_config_params(const double epsilon, float* var, int& points_per_leaf, int &trees_no,
-                          int& t, int& max_leaf_check, Rotation& rotate_option,
+                          int& t, Rotation& rotate_option,
                           bool& shuffle_enable) {
     compute_variances<T>(points, N, D, var, N);
     /* In probability theory and statistics, variance measures
