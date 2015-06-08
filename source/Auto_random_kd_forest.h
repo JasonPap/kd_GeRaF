@@ -53,11 +53,6 @@ bool lib_compar(const std::pair<float, int>& a,
 template<typename T>
 class Auto_random_kd_forest {
  private:
-
-  //Data members of the class
-  std::vector<T> squared_coords;
-  int max_leaf_check;
-
   /** \brief Read a data set, which has one point per line.
    *
    * Dimension and number of points should have been
@@ -245,8 +240,7 @@ class Auto_random_kd_forest {
  public:
   /**
    * \brief Constructor that will automatically compute the optimal
-   * parameters, build the forest, perform the search and fill in the
-   * result vector. 'N' and 'D' parameters are going to be updated if
+   * parameters and build the forest. 'N' and 'D' parameters are going to be updated if
    * needed (pass them with initial values of zero to the constructor).
    *
    * @param N           - size of data set
@@ -814,6 +808,14 @@ class Auto_random_kd_forest {
     }
   }
 
+  /**
+   * Precalculated suared coords
+   */
+  std::vector<T> squared_coords;
+  /**
+   * Number of leafs to look
+   */
+  int max_leaf_check;
   /**
    * The roots of the trees the forest has.
    */
