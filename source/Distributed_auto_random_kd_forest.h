@@ -5,13 +5,125 @@
 #ifndef DISTRIBUTED_AUTO_RANDOM_KD_TREE_H
 #define DISTRIBUTED_AUTO_RANDOM_KD_TREE_H
 
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include <ctype.h>
 #include <mpi.h>
-#include "MPI_functions.h" 
 #include "Auto_random_kd_forest.h"
 
 template <typename T>
 class Distributed_auto_random_kd_forest
 {
+private:
+	/* 
+	 * \brief Initializes the MPI framework 
+	 * @return	-	the number of MPI processes 
+	 */ 
+	int initialize_MPI(){ 
+	    MPI_Init(NULL, NULL); 
+		int p = MPI::COMM_WORLD.Get_size();
+	    return p; 
+	}
+
+	void split_file(const std::string& datafile, const int rank, const int size, const int overlap) {
+	    MPI_File in, out;
+	    int ierr;
+	    char* cdatafile = new char[datafile.length() + 1];
+	    strcpy(cdatafile, datafile.c_str());
+	    printf("-%s- file to open shortly\n", cdatafile); 
+	    //every process opens the datafile for input
+	    ierr = MPI_File_open(MPI_COMM_WORLD, cdatafile, MPI_MODE_RDONLY, MPI_INFO_NULL, &in);
+	    if (ierr) {
+	        if (rank == 0) 
+	        	std::cerr << "Couldn't open file " << datafile << std::endl;
+	        MPI_Finalize();
+	        exit(1);
+	    }
+	    printf("%s file opened\n", cdatafile);
+
+	    local_datafile = datafile;
+	    local_datafile.append(std::to_string(rank));
+	    char* cfilename = new char[local_datafile.length() + 1];
+	    strcpy(cfilename, local_datafile.c_str());
+	    printf("cfilename = %s\n", cfilename);
+	    //each process opens its own output file
+	    ierr = MPI_File_open(MPI_COMM_SELF, cfilename, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &out);
+	    if (ierr) {
+	        //if (rank == 0) 
+	        	std::cerr << "Couldn't open output file " << std::endl;
+	        MPI_Finalize();
+	        exit(1);
+	    }
+	    delete[] cfilename;
+
+	    //MPI_Offset localsize;
+	    MPI_Offset globalstart;
+	    int mysize;
+	    char *chunk;
+
+	    /* read in relevant chunk of file into "chunk",
+	     * which starts at location in the file globalstart
+	     * and has size mysize 
+	     */
+	    {
+	        MPI_Offset globalend;
+	        MPI_Offset filesize;
+
+	        /* figure out who reads what */
+	        MPI_File_get_size(in, &filesize);
+	        filesize--;  /* get rid of text file eof */
+	        mysize = filesize/size;
+	        std::cout<<" I'm "<<rank<<" and mysize = "<<mysize<<std::endl;
+	        globalstart = rank * mysize;
+	        globalend   = globalstart + mysize - 1;
+	        if (rank == size-1) globalend = filesize-1;
+
+	        /* add overlap to the end of everyone's chunk except last proc... */
+	        if (rank != size-1)
+	            globalend += overlap;
+
+	        mysize =  globalend - globalstart + 1;
+	        std::cout<<" I'm "<<rank<<" and mysize = "<<mysize<<std::endl;
+
+	        /* allocate memory */
+	        chunk = new char[ (mysize + 1)*sizeof(char)];
+	        if (chunk == NULL){
+	        	std::cerr << "Could not allocate memory for new file, exiting..." << std::endl;
+	        	MPI_Finalize();
+	        	exit(1);
+	        }
+
+	        /* everyone reads in their part */
+	        MPI_File_read_at_all(in, globalstart, chunk, mysize, MPI_CHAR, MPI_STATUS_IGNORE);
+	        chunk[mysize] = '\0';
+	        std::cout<<" I'm "<<rank<<" I read "<<strlen(chunk)<<std::endl;
+	    }
+
+	    /*
+	     * everyone calculate what their start and end *really* are by going 
+	     * from the first newline after start to the first newline after the
+	     * overlap region starts (eg, after end - overlap + 1)
+	     */
+	    int locstart=0, locend=mysize-1;
+	    if (rank != 0) {
+	        while(chunk[locstart] != '\n') locstart++;
+	        locstart++;
+	    }
+	    if (rank != size-1) {
+	        locend-=overlap;
+	        while(chunk[locend] != '\n') locend++;
+	    }
+	    mysize = locend-locstart+1;
+
+	    /* output the processed file */
+	    MPI_File_write_at_all(out, 0, &(chunk[locstart]), mysize, MPI_CHAR, MPI_STATUS_IGNORE);
+	    MPI_File_close(&in);
+    	MPI_File_close(&out);
+    	delete[] chunk;
+
+	    return;
+	}
 public:
 	/**
 	 *\brief Contructor for the distributed kd forest. Takes
@@ -29,15 +141,13 @@ public:
 		proc_num = initialize_MPI();
 		rank = MPI::COMM_WORLD.Get_rank();
 
-		if(rank == 0){
-			//master process read the file and distributes points to slaves
-			if (file_option == 0) {
-		      	split_file(datafile, rank, proc_num, 100);
-		    } else if (file_option == 1) {
-		      	std::cout << "File option 1 not supported by distributed kd-forest" << std::endl;
-    			Finalize();
-    			exit(1);
-    		}
+		if (file_option == 0) {
+			std::cout<<"about to split the file"<<std::endl;
+	      	split_file(datafile, rank, proc_num, 5);
+	    } else if (file_option == 1) {
+	      	std::cout << "File option 1 not supported by distributed kd-forest" << std::endl;
+			MPI_Finalize();
+			exit(1);
 		}
 
 	}
@@ -67,111 +177,116 @@ private:
 	 * Name of the local file with the points needed for the local
 	 * kd-forest
 	 */
-	std::string local_datafile
+	std::string local_datafile;
 
 	
 	/* 
 	 * \brief Initializes the MPI framework 
 	 * @return	-	the number of MPI processes 
 	 */ 
-	int initialize_MPI(){ 
-	    MPI::Init(NULL, NULL); 
-		int p = MPI::COMM_WORLD.Get_size();
-	    return p; 
-	}
+	// int initialize_MPI(){ 
+	//     MPI_Init(NULL, NULL); 
+	// 	int p = MPI::COMM_WORLD.Get_size();
+	//     return p; 
+	// }
 
-	void split_file(const std::string& datafile, const int rank, const int size, const int overlap) {
-	    MPI_File in, out;
-	    //every process opens the datafile for input
-	    ierr = MPI::File::Open(MPI::COMM_WORLD, datafile, MPI_MODE_RDONLY, MPI_INFO_NULL, &in);
-	    if (ierr) {
-	        if (rank == 0) 
-	        	std::err << "Couldn't open file " << datafile << std::endl;
-	        Finalize();
-	        exit(1);
-	    }
+	// void split_file(const std::string& datafile, const int rank, const int size, const int overlap) {
+	//     MPI_File *in, *out;
+	//     int ierr;
+	//     char* cdatafile = new char[datafile.length() + 1];
+	//     strcpy(cdatafile, datafile.c_str()); 
+	//     //every process opens the datafile for input
+	//     ierr = MPI_File_open(MPI_COMM_WORLD, cdatafile, MPI_MODE_RDONLY, MPI_INFO_NULL, in);
+	//     if (ierr) {
+	//         if (rank == 0) 
+	//         	std::cerr << "Couldn't open file " << datafile << std::endl;
+	//         MPI_Finalize();
+	//         exit(1);
+	//     }
 
-	    local_datafile = datafile;
-	    local_datafile.append(std::to_string(rank));
-	    char* cfilename = new char[local_datafile.length() + 1];
-	    strcpy(cfilename, local_datafile.c_str());
-	    printf("cfilename = %s\n", cfilename);
-	    //each process opens its own output file
-	    ierr = MPI::File::Open(MPI::COMM_SELF, cfilename, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &out);
-	    if (ierr) {
-	        if (rank == 0) 
-	        	std::err << "Couldn't open output file " << std::endl;
-	        Finalize();
-	        exit(1);
-	    }
-	    delete[] cfilename;
+	//     local_datafile = datafile;
+	//     local_datafile.append(std::to_string(rank));
+	//     char* cfilename = new char[local_datafile.length() + 1];
+	//     strcpy(cfilename, local_datafile.c_str());
+	//     printf("cfilename = %s\n", cfilename);
+	//     //each process opens its own output file
+	//     ierr = MPI_File_open(MPI_COMM_SELF, cfilename, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, out);
+	//     if (ierr) {
+	//         if (rank == 0) 
+	//         	std::cerr << "Couldn't open output file " << std::endl;
+	//         MPI_Finalize();
+	//         exit(1);
+	//     }
+	//     delete[] cfilename;
 
-	    MPI_Offset localsize;
-	    MPI_Offset globalstart;
-	    int mysize;
-	    char *chunk;
+	//     //MPI_Offset localsize;
+	//     MPI_Offset globalstart;
+	//     int mysize;
+	//     char *chunk;
 
-	    /* read in relevant chunk of file into "chunk",
-	     * which starts at location in the file globalstart
-	     * and has size mysize 
-	     */
-	    {
-	        MPI_Offset globalend;
-	        MPI_Offset filesize;
+	//     /* read in relevant chunk of file into "chunk",
+	//      * which starts at location in the file globalstart
+	//      * and has size mysize 
+	//      */
+	//     {
+	//         MPI_Offset globalend;
+	//         MPI_Offset filesize;
 
-	        /* figure out who reads what */
-	        MPI_File_get_size(*in, &filesize);
-	        filesize--;  /* get rid of text file eof */
-	        mysize = filesize/size;
-	        globalstart = rank * mysize;
-	        globalend   = globalstart + mysize - 1;
-	        if (rank == size-1) globalend = filesize-1;
+	//         /* figure out who reads what */
+	//         MPI_File_get_size(*in, &filesize);
+	//         filesize--;  /* get rid of text file eof */
+	//         mysize = filesize/size;
+	//         globalstart = rank * mysize;
+	//         globalend   = globalstart + mysize - 1;
+	//         if (rank == size-1) globalend = filesize-1;
 
-	        /* add overlap to the end of everyone's chunk except last proc... */
-	        if (rank != size-1)
-	            globalend += overlap;
+	//         /* add overlap to the end of everyone's chunk except last proc... */
+	//         if (rank != size-1)
+	//             globalend += overlap;
 
-	        mysize =  globalend - globalstart + 1;
+	//         mysize =  globalend - globalstart + 1;
 
-	        /* allocate memory */
-	        chunk = malloc( (mysize + 1)*sizeof(char));
-	        if (chunk == NULL){
-	        	std::err << "Could not allocate memory for new file, exiting..." << std::endl;
-	        	Finalize();
-	        	exit(1);
-	        }
+	//         /* allocate memory */
+	//         chunk = new char[ (mysize + 1)*sizeof(char)];
+	//         if (chunk == NULL){
+	//         	std::cerr << "Could not allocate memory for new file, exiting..." << std::endl;
+	//         	MPI_Finalize();
+	//         	exit(1);
+	//         }
 
-	        /* everyone reads in their part */
-	        MPI_File_read_at_all(*in, globalstart, chunk, mysize, MPI_CHAR, MPI_STATUS_IGNORE);
-	        chunk[mysize] = '\0';
-	    }
+	//         /* everyone reads in their part */
+	//         MPI_File_read_at_all(*in, globalstart, chunk, mysize, MPI_CHAR, MPI_STATUS_IGNORE);
+	//         chunk[mysize] = '\0';
+	//     }
 
-	    /*
-	     * everyone calculate what their start and end *really* are by going 
-	     * from the first newline after start to the first newline after the
-	     * overlap region starts (eg, after end - overlap + 1)
-	     */
-	    int locstart=0, locend=mysize-1;
-	    if (rank != 0) {
-	        while(chunk[locstart] != '\n') locstart++;
-	        locstart++;
-	    }
-	    if (rank != size-1) {
-	        locend-=overlap;
-	        while(chunk[locend] != '\n') locend++;
-	    }
-	    mysize = locend-locstart+1;
+	//     /*
+	//      * everyone calculate what their start and end *really* are by going 
+	//      * from the first newline after start to the first newline after the
+	//      * overlap region starts (eg, after end - overlap + 1)
+	//      */
+	//     int locstart=0, locend=mysize-1;
+	//     if (rank != 0) {
+	//         while(chunk[locstart] != '\n') locstart++;
+	//         locstart++;
+	//     }
+	//     if (rank != size-1) {
+	//         locend-=overlap;
+	//         while(chunk[locend] != '\n') locend++;
+	//     }
+	//     mysize = locend-locstart+1;
 
-	    /* output the processed file */
-	    MPI_File_write_at_all(*out, (MPI_Offset)(globalstart+(MPI_Offset)locstart), &(chunk[locstart]), mysize, MPI_CHAR, MPI_STATUS_IGNORE);
-	    MPI_File_close(&in);
-    	MPI_File_close(&out);
+	//     /* output the processed file */
+	//     MPI_File_write_at_all(*out, (MPI_Offset)(globalstart+(MPI_Offset)locstart), &(chunk[locstart]), mysize, MPI_CHAR, MPI_STATUS_IGNORE);
+	//     MPI_File_close(in);
+ //    	MPI_File_close(out);
+ //    	delete[] chunk;
 
-	    return;
-}
+	//     return;
+	// }
+	
 
 
-}
+};
 
 
  #endif //DISTRIBUTED_AUTO_RANDOM_KD_TREE_H
