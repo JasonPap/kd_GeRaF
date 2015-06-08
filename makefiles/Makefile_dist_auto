@@ -1,0 +1,13 @@
+OBJS 	= main_dist_auto.o
+SOURCE	= ../main/main_dist_auto.cpp
+OUT  	=	geraf
+CXX	= mpic++
+FLAGS   =	-pthread	-std=c++0x	-DRKD_PAR	-O3	-Wall
+
+all: $(OBJS)
+	$(CXX)	$(OBJS) -o $(OUT)	$(FLAGS)
+	rm -f $(OBJS)
+
+# create/compile the individual files >>separately<< 
+main_dist_auto.o:	main/main_dist_auto.cpp
+	$(CXX)	-c	main/main_dist_auto.cpp	$(FLAGS)
