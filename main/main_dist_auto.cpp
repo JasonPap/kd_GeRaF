@@ -14,5 +14,6 @@ int main(void)
 	cout << "Dforest created, ready to rock" << endl;
 	std::vector< std::vector<std::pair<float, int> > > res;
 	dforest->perform_queries(9, "./test_files/query.txt", 1, 0.0, res, false);
+	delete(dforest);
 	return 0;
 }
