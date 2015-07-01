@@ -440,8 +440,10 @@ class Auto_random_kd_forest {
       std::vector<T> q_squared_coords;
       computeSquare(q, Q, D, q_squared_coords);
       for (unsigned int i = 0; i < Q; ++i) {
+        //std::cout<<"searching NN of "<<i<<"    "<<q[0][i]<<std::endl;
         search_nn_prune(q[i], results[i], max_leaf_check,
                         q_squared_coords, i, false, k, epsilon);
+        //std::cout<<"found nn -> " << results[0][i].second <<std::endl;
       }
    }
 
@@ -494,6 +496,15 @@ class Auto_random_kd_forest {
   void print(const std::vector<T>& p) {
     for (size_t i = 0; i < p.size(); ++i)
       std::cout << p[i] << "\n";
+  }
+
+  /**
+   * \brief Print a point based of its line id.
+   * @param id - the id of the point
+   */
+  void print(const int id){
+    for(int i = 0; i<D; i++)
+      std::cout<<points[id*D+i]<<std::endl;
   }
 
   /**
