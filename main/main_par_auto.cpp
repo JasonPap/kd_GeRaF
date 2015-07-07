@@ -7,15 +7,16 @@
 #include "../source/Auto_random_kd_forest.h"
 
 int main(int argc, char *argv[]) {
-  size_t N = 11, D = 10, Q = 1;
-  int k = 2;
+  size_t N = 1000000, D = 200, Q = 500000;
+  int k = 1;
   double epsilon = 0.0;
   std::string datafile = "test_files/data.txt", queryfile = "test_files/query.txt";
   std::vector< std::vector<std::pair<float, int> > > res;
 
-  Auto_random_kd_forest<int> RKDf(N, D, datafile, epsilon);
+  Auto_random_kd_forest<float> RKDf(N, D, datafile, epsilon);
+
   RKDf.perform_queries(Q, queryfile, k, epsilon, res);
-	
+
   std::cout << "\nRESULTS\n";
   for (std::vector<std::pair<float, int> >::const_iterator it = res[0]
       .begin(); it != res[0].end(); ++it)
