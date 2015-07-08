@@ -66,11 +66,10 @@ public:
 		MPI_Barrier(MPI_COMM_WORLD);
 		delete(RKDf);
 		MPI_Finalize();
-		std::cout<<"dkdf destroyed"<<std::endl;
 	}
 
 	void perform_queries(const size_t Q, const std::string& queryfile, const int k, const double epsilon, 
-		std::vector<std::vector<std::pair<float, int> > >& results, const bool printPoints){
+		std::vector<std::vector<std::pair<float, int> > >& results){
 
 		clock_t t = clock();
 		std::vector<std::vector<std::pair<float, int> > > local_results;
@@ -84,26 +83,6 @@ public:
 		}
 
 		if ( k == 1){
-			// //then MPI_REDUCE can be used for best efficiency
-			// for(int i = 0; i < Q; i++){
-			// 	float local_d = local_results[i][0].first;
-			// 	float global_d = 0;
-			// 	MPI_Reduce((void*)&local_d, &global_d, 1, MPI_FLOAT, MPI_MIN, 0, MPI_COMM_WORLD);
-
-			// 	// if(rank == 0)
-			// 	// {
-			// 	// 	std::cout<<"Query: "<<i<<" min distance = "<<global_d<<std::endl;
-			// 	// }
-			// 	if (printPoints){
-			// 		sleep(1);
-			// 		MPI_Bcast((void*)&global_d, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
-			// 		if(global_d == local_d){
-			// 			RKDf->print(local_results[i][0].second);
-			// 		}
-			// 	}
-
-			// }
-
 			float* local_distances = new float[Q];
 			for(int i = 0; i < Q; i++){
 				local_distances[i] = (float)local_results[i][0].first;
@@ -144,47 +123,6 @@ public:
 					delete[] distances[i];
 				delete[] distances;
 			}
-
-			//MPI_Status s;
-			//MPI_Wait(&request, &s);
-			// sleep(rank);
-			// std::cout<<rank<<" sent\n";
-			//delete[] local_distances;
-			// MPI_Barrier(MPI_COMM_WORLD);
-			// sleep(rank);
-			// std::cout<<"My rank is : "<<rank<<std::endl;
-
-			// float* all_dist = NULL;
-			// if(rank == 0){
-			// 	std::cout<<"About to allocate a big chunk of memory "<< Q*proc_num<<std::endl;
-			// 	all_dist = new float[Q*proc_num];
-			// 	all_dist[0] = 4.3;
-			// 	if (all_dist == NULL)
-			// 		std::cout<<"Error allocation memory"<<std::endl;
-			// std::cout<<all_dist[0]<<std::endl;
-			// }
-			// float* all_dist = new float[Q*proc_num];
-			// MPI_Barrier(MPI_COMM_WORLD);
-			// MPI_Gather((void*)local_distances, Q, MPI_FLOAT, (void*)all_dist, Q*proc_num, MPI_FLOAT, 0, MPI_COMM_WORLD);
-			// std::cout<<"AAAAAAAAAAAAAAA\n";
-			// // delete(local_distances);
-			// if(rank == 0){
-			// 	float min;
-			// 	for(int i = 0; i < Q; ++i){
-			// 		min = all_dist[i];
-			// 		for(int j = 1; j < proc_num; ++j){
-			// 			if(all_dist[i+j*Q] < min){
-			// 				min = all_dist[i+j*Q];
-			// 			}
-			// 		}
-			// 		std::cout<<min<<std::endl;
-			// 	}
-			// 	// sleep(10);
-			// 	// delete(all_dist);
-				
-			// }
-			// std::cout<<"BBBBBBBBBBBB\n";
-			// sleep(111);
 
 		}
 		else{ 	// k > 1 Results must all be gathered by the master process

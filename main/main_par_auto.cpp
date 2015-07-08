@@ -7,7 +7,7 @@
 #include "../source/Auto_random_kd_forest.h"
 
 int main(int argc, char *argv[]) {
-  size_t N = 1000000, D = 200, Q = 500000;
+  size_t N = 100000, D = 2000, Q = 80000;
   int k = 1;
   double epsilon = 0.0;
   std::string datafile = "test_files/data.txt", queryfile = "test_files/query.txt";
